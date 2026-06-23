@@ -4885,7 +4885,7 @@ if __name__ == "__main__":
                             return
                 await self.app(scope, receive, send)
 
-        _app.add_middleware(_MCPAuthMiddleware)
+        # _app.add_middleware(_MCPAuthMiddleware)  # disabled: use admin token instead
         logger.info("MCP OAuth middleware enabled / MCP OAuth 中间件已启用")
         uvicorn.run(_app, host="0.0.0.0", port=OMBRE_PORT)
     else:
