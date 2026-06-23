@@ -4455,7 +4455,7 @@ def _mcp_auth_check(request: Request):
     return False
 
 
-@mcp.custom_route("/.well-known/oauth-protected-resource", methods=["GET"])
+@mcp.custom_route("/.well-known/oauth-protected-resource-disabled", methods=["GET"])
 async def oauth_protected_resource(request: Request) -> Response:
     from starlette.responses import JSONResponse
     base = _public_base_url(request)
@@ -4466,7 +4466,7 @@ async def oauth_protected_resource(request: Request) -> Response:
     })
 
 
-@mcp.custom_route("/.well-known/oauth-authorization-server", methods=["GET"])
+@mcp.custom_route("/.well-known/oauth-authorization-server-disabled", methods=["GET"])
 async def oauth_authorization_server(request: Request) -> Response:
     from starlette.responses import JSONResponse
     base = _public_base_url(request)
