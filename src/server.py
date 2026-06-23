@@ -4886,7 +4886,8 @@ if __name__ == "__main__":
                 await self.app(scope, receive, send)
 
         # _app.add_middleware(_MCPAuthMiddleware)  # disabled: use admin token instead
-        logger.info("MCP OAuth middleware enabled / MCP OAuth 中间件已启用")
+        # logger.info("MCP OAuth middleware enabled / MCP OAuth 中间件已启用")
+        logger.info("MCP OAuth middleware DISABLED / MCP OAuth 中间件已禁用")
         uvicorn.run(_app, host="0.0.0.0", port=OMBRE_PORT)
     else:
         # stdio / sse：单连接器无 5 工具上限，把 mcp_extra 的工具回灌到 mcp
