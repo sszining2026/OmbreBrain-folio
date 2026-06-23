@@ -28,9 +28,11 @@ log_level: "INFO"
 merge_threshold: 75
 
 # --- Dehydration API / 脱水压缩 API 配置 ---
-# Uses a cheap LLM for intelligent compression; auto-degrades to local
-# keyword extraction if API is unavailable
-# 用廉价 LLM 做智能压缩，API 不可用时自动降级到本地关键词提取
+# Uses a cheap LLM for intelligent compression. API is required; if the
+# configured key/endpoint is unavailable, hold/grow will raise an explicit
+# error instead of silently degrading (see BEHAVIOR_SPEC.md 三、降级行为表).
+# 用廉价 LLM 做智能压缩。API 为必需；如 key/endpoint 不可用，
+# hold/grow 会直接报错而非静默降级（详见 BEHAVIOR_SPEC.md 三、降级行为表）。
 dehydration:
   # Supports any OpenAI-compatible API: DeepSeek / Ollama / LM Studio / vLLM / Gemini etc.
   # 支持所有 OpenAI 兼容 API：DeepSeek / Ollama / LM Studio / vLLM / Gemini 等
@@ -43,19 +45,9 @@ dehydration:
   #   LM Studio:   http://localhost:1234/v1
   #   vLLM:        http://localhost:8000/v1
   #   Gemini:      https://generativelanguage.googleapis.com/v1beta/openai
-  # api_key: ""    # ⚠️ Use env var OMBRE_API_KEY instead / 请使用环境变量 OMBRE_API_KEY
+  # api_key: ""    # ⚠️ Use env var OMBRE_COMPRESS_API_KEY instead / 请使用环境变量 OMBRE_COMPRESS_API_KEY
   max_tokens: 1024
   temperature: 0.1
-
-# --- Import behavior / 导入行为 ---
-# 导入对话历史时,LLM 抽取每条记忆的可选额外字段
-import:
-  # long_excerpt: true → LLM 额外输出 source_excerpt 字段(200-800 字精准对话片段),
-  #   "查看原文"按钮显示这段,而不是整个 chunk(避免点开看到无关 item 的对话)。
-  # 默认 false 保守 — 因为弱 LLM(如 DeepSeek)对"严格字数 + 不越界"约束遵从度低,
-  # 可能把同段其他 item 的对话也抄进来,反而更糟。
-  # 建议用 Claude Sonnet/Opus / GPT-4 等强模型时打开;DeepSeek 等先测过再开。
-  long_excerpt: false
 
 # --- Decay parameters / 记忆衰减参数 ---
 # Simulates Ebbinghaus forgetting curve, auto-archives inactive memories
@@ -69,13 +61,14 @@ decay:
     arousal_boost: 0.8            # Arousal boost coefficient / 唤醒度加成系数
 
 # --- Embedding / 向量化配置 ---
-# Uses embedding API for semantic similarity search
-# 通过 embedding API 实现语义相似度搜索
-# Reuses the same API key (OMBRE_API_KEY) and base_url from dehydration config
-# 复用脱水配置的 API key 和 base_url
+# 使用 OpenAI 兼容的云端 API（如 Gemini）进行向量化。
+# 需要在环境变量中设置 OMBRE_EMBED_API_KEY。
 embedding:
   enabled: true                   # Enable embedding / 启用向量化
-  model: "gemini-embedding-001"   # Embedding model / 向量化模型
+  backend: "api"                  # 只支持 api（OpenAI 兼容端点）
+  model: "gemini-embedding-001"   # 云端模型名（如 gemini-embedding-001）
+  base_url: "https://generativelanguage.googleapis.com/v1beta/openai/"
+  # api_key: ""                   # Use OMBRE_EMBED_API_KEY / 使用 OMBRE_EMBED_API_KEY
 
 # --- Scoring weights / 检索权重参数 ---
 # total = topic(×4) + emotion(×2) + time(×1.5) + importance(×1)
@@ -90,12 +83,48 @@ matching:
   fuzzy_threshold: 50             # Minimum match score (0-100) / 最低匹配分数
   max_results: 5                  # Max results per search / 单次搜索最多返回条数
 
+# --- Surfacing defaults / 浮现默认参数 ---
+# Defaults applied when Claude calls breath() without explicit caps.
+# Front-end Settings panel writes the same fields back here.
+# Claude 调用 breath() 不显式传 max_* 时使用这些默认；前端「浮现默认参数」面板会回写到这里。
+surfacing:
+  breath_max_results: 20          # 1-50, hard cap of buckets returned per breath
+  breath_max_tokens: 10000        # 500-20000, total token cap per breath
+  feel_max_tokens: 6000           # 500-20000, full-text budget for feel history; older feels collapse to one-line summaries
+  # iter 1.8: weighted sampling for breath surfacing mode（无参数浮现）
+  # 加权采样：从 top_k 候选里按 score**(1/temperature) 抽 sample_k 个，让"想起"带轻微随机性。
+  # 测试 fixture 里默认关 (enabled=false)，保证排序确定。生产可以开。
+  sampling:
+    enabled: false                # true = 启用加权采样；false = 退化为 top1+shuffle 原行为
+    top_k: 5                      # 候选池大小
+    sample_k: 2                   # 抽出几个
+    temperature: 0.7              # >1 更平均、<1 更偏向高分；0.7 是个温和的默认
+
+# --- Limits / 边界限制（iter 1.6 §5）---
+# Single-bucket size cap and pinned bucket quota. Exceeding either is
+# rejected at hold/grow/trace boundaries with a Chinese hint string.
+# 单桶字节上限 + pinned 桶数量上限。超出时在 hold/grow/trace 入口直接拒绝。
+limits:
+  max_bucket_bytes: 51200         # 50KB; 0 disables check
+  max_pinned: 20                  # max pinned buckets; 0 disables check
+
+# --- iter 1.9 G: 桶类型默认值 / per-type frontmatter defaults ---
+# Applied at create() time only when caller doesn't pass that field.
+# 写入时若调用方未显式传入对应字段，使用此处默认值。
+# 设计意图：letter 天然有重量、信件天然不该被静音；plan 默认中等承诺。
+bucket_type_defaults:
+  letter:
+    weight: 1.0
+    dont_surface: false
+  plan:
+    weight: 0.5
+
 # --- Obsidian wikilinks / Obsidian 双链自动注入 ---
 wikilink:
   enabled: true
   use_tags: false
   use_domain: true
   use_auto_keywords: true
-  auto_top_k: 8
-  min_keyword_len: 2
+  auto_top_k: 4
+  min_keyword_len: 3
   exclude_keywords: []

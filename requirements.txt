@@ -14,25 +14,19 @@ openai>=1.0.0
 
 # YAML 配置解析
 pyyaml>=6.0
+types-PyYAML>=6.0
 
 # Markdown frontmatter 解析（桶文件读写）
 python-frontmatter>=1.1.0
 
-# 中文分词
-jieba>=0.42.1
-
 # 异步 HTTP 客户端（应用层保活 ping）
 httpx>=0.27.0
 
-# ASGI 服务器 + Web 框架 (HTTP / SSE / streamable-http 传输模式必需)
-uvicorn>=0.30.0
-starlette>=0.37.0
-
-# 向量相似度计算 (导入模式; 余弦相似度为手写实现, 无需 sklearn)
+# 向量相似度计算 (导入模式/聚类)
 numpy>=1.24.0
+scikit-learn>=1.2.0
 
-# 纯 Python git 实现 (备份 endpoint 用, 不依赖系统 git 命令)
-dulwich>=0.21.0
+# BM25 稀疏检索 + 中文分词（软依赖，缺包时自动降级）
+rank-bm25>=0.2.2
+jieba>=0.42.1
 
-# ─── 开发/测试用 (运行服务不需要; 想跑 tests/ 才装) ───
-# pip install pytest pytest-asyncio

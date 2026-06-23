@@ -11,11 +11,8 @@
 # 顺序：呼吸浮现 → 做梦消化 → 读取 feel
 #
 # Config:
-#   OMBRE_HOOK_URL   — override the server URL (default: http://localhost:8000)
-#   OMBRE_HOOK_SKIP  — set to "1" to disable the hook temporarily
-#   OMBRE_HOOK_TOKEN — admin token for X-Admin-Token header (falls back to
-#                      OMBRE_ADMIN_TOKEN). Needed when the server enforces auth;
-#                      omit for an unauthenticated localhost dev server.
+#   OMBRE_HOOK_URL  — override the server URL (default: http://localhost:8000)
+#   OMBRE_HOOK_SKIP — set to "1" to disable the hook temporarily
 # ============================================================
 
 import os
@@ -38,13 +35,9 @@ def main():
 
 
 def _call_endpoint(base_url, path):
-    headers = {"Accept": "text/plain"}
-    token = (os.environ.get("OMBRE_HOOK_TOKEN") or os.environ.get("OMBRE_ADMIN_TOKEN") or "").strip()
-    if token:
-        headers["X-Admin-Token"] = token
     req = urllib.request.Request(
         f"{base_url}{path}",
-        headers=headers,
+        headers={"Accept": "text/plain"},
         method="GET",
     )
     try:

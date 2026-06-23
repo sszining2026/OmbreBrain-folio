@@ -1,0 +1,32 @@
+﻿# Ombre Brain — 用户自部署
+# 直接拉取 Docker Hub 镜像，不需要源码
+#
+# 用法：
+#   docker compose -f docker-compose.user.yml up -d
+#
+# 需要准备：
+#   1. 把 config.yaml 放在与此文件相同目录（参考 config.example.yaml）
+#   2. 设置以下环境变量（或在此文件 environment: 段填写）：
+#      OMBRE_COMPRESS_API_KEY  — 压缩/脱水用的 LLM key
+#      OMBRE_DASHBOARD_PASSWORD — Dashboard 登录密码
+
+services:
+  ombre-brain:
+    image: p0luz/ombre-brain:latest
+    container_name: ombre-brain
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - OMBRE_TRANSPORT=streamable-http
+      - OMBRE_EMBED_BACKEND=${OMBRE_EMBED_BACKEND:-local}
+      - OMBRE_COMPRESS_API_KEY=${OMBRE_COMPRESS_API_KEY}
+      - OMBRE_COMPRESS_BASE_URL=${OMBRE_COMPRESS_BASE_URL:-}
+      - OMBRE_COMPRESS_MODEL=${OMBRE_COMPRESS_MODEL:-}
+      - OMBRE_EMBED_API_KEY=${OMBRE_EMBED_API_KEY:-}
+      - OMBRE_EMBED_BASE_URL=${OMBRE_EMBED_BASE_URL:-}
+      - OMBRE_EMBED_MODEL=${OMBRE_EMBED_MODEL:-}
+      - OMBRE_DASHBOARD_PASSWORD=${OMBRE_DASHBOARD_PASSWORD}
+    volumes:
+      - ./buckets:/app/buckets
+      - ./config.yaml:/app/config.yaml

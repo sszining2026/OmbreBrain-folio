@@ -14,11 +14,12 @@
 import os
 import pytest
 import asyncio
+import pytest_asyncio
 
 # Feel flow tests use direct BucketManager calls, no LLM needed.
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def isolated_tools(test_config, tmp_path, monkeypatch):
     """
     Import server tools with config pointing to temp dir.
@@ -66,7 +67,7 @@ class TestFeelLifecycle:
         bm, dh, de, bd = isolated_tools
 
         bid = await bm.create(
-            content="帮P酱修好bug的时候，我感到一种真实的成就感",
+            content="帮TestUser修好bug的时候，我感到一种真实的成就感",
             tags=[],
             importance=5,
             domain=[],
@@ -155,12 +156,10 @@ class TestFeelLifecycle:
             name="争吵", bucket_type="dynamic",
         )
 
-        # Verify not internalized yet
-        # 字段从 digested 重命名为 internalized; bm.update 收到 digested=True
-        # 会自动转写 internalized 并清除老 digested 字段, 但 test 应直接断言新字段名
+        # Verify not digested yet
         all_b = await bm.list_all()
         source = next(b for b in all_b if b["id"] == source_id)
-        assert not source["metadata"].get("internalized", False)
+        assert not source["metadata"].get("digested", False)
 
         # Create feel referencing it
         await bm.create(
@@ -169,14 +168,13 @@ class TestFeelLifecycle:
             valence=0.5, arousal=0.4,
             name=None, bucket_type="feel",
         )
-        # Manually mark internalized (simulating server.py hold logic).
-        # bm.update 同时接受 digested 别名 (转写到 internalized), 此处用新字段名更直观
-        await bm.update(source_id, internalized=True)
+        # Manually mark digested (simulating server.py hold logic)
+        await bm.update(source_id, digested=True)
 
-        # Verify internalized
+        # Verify digested
         all_b = await bm.list_all()
         source = next(b for b in all_b if b["id"] == source_id)
-        assert source["metadata"].get("internalized") is True
+        assert source["metadata"].get("digested") is True
 
     @pytest.mark.asyncio
     async def test_feel_never_decays(self, isolated_tools):
@@ -242,7 +240,7 @@ class TestFeelLifecycle:
         # Create 3+ similar feels (about trust)
         for i in range(4):
             await bm.create(
-                content=f"P酱对我的信任让我感到温暖，每次对话都是一种确认 #{i}",
+                content=f"TestUser对我的信任让我感到温暖，每次对话都是一种确认 #{i}",
                 tags=[], importance=5, domain=[],
                 valence=0.8, arousal=0.4,
                 name=None, bucket_type="feel",
